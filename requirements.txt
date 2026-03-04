@@ -1,0 +1,7 @@
+# Bloomberg Desktop API — installed via Bloomberg API SDK, not pip.
+# Confirm with: C:\Users\Feldberg.Dartmouth\python\python.exe -c "import blpapi; print(blpapi.version())"
+blpapi
+
+# Core data dependencies — install with pip.
+pandas
+pyarrow
