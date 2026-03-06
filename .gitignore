@@ -2,19 +2,8 @@
 #  MATH-86 Quanto Project — .gitignore
 # ============================================================
 
-# --- Raw Bloomberg exports — tracked so the repo is self-contained ----------
-# Ignore everything inside data/raw/ by default, then carve out CSVs and docs.
-data/raw/*
-!data/raw/*.csv
-!data/raw/README.md
-
-# --- Generated / derived data — never commit --------------------------------
-data/processed/*
-
-# --- Generated figures — never commit ---------------------------------------
-outputs/figures/*
-# Keep a .gitkeep so the empty directory is tracked
-!outputs/figures/.gitkeep
+# --- Data — track everything (raw CSVs, processed CSVs, figures) ------------
+# No exclusions under data/ or outputs/ — commit all of it.
 
 # --- Python artefacts ----------------------------------------
 __pycache__/
