@@ -79,7 +79,7 @@ _PREFIX_LOC = "loc_"
 _PREFIX_FX  = "fx_"
 
 # ---------------------------------------------------------------------------
-# Internal helpers — Excel
+# Internal helpers — Excel  (kept for reference; not used by the CSV pipeline)
 # ---------------------------------------------------------------------------
 
 _SKIP_ROWS = 1          # Bloomberg Excel exports have one metadata header row
@@ -208,7 +208,7 @@ def _read_bbg_csv(
 
 
 # ---------------------------------------------------------------------------
-# Public loaders — Excel
+# Public loaders — Excel  (kept for reference; not used by the CSV pipeline)
 # ---------------------------------------------------------------------------
 
 def load_adr_vols(path: str | Path, sheet_name: str | int = 0) -> pd.DataFrame:
