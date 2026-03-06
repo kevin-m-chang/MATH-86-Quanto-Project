@@ -27,7 +27,7 @@ import pandas as pd
 # Load
 # ---------------------------------------------------------------------------
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent.parent   # project root
 DATA = ROOT / "data" / "processed" / "cleaned_dataset.csv"
 
 df = pd.read_csv(DATA, index_col="date", parse_dates=True)
