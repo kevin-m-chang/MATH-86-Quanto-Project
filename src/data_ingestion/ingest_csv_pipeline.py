@@ -37,7 +37,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-_ROOT = Path(__file__).resolve().parent
+_ROOT = Path(__file__).resolve().parent.parent.parent   # project root
 sys.path.insert(0, str(_ROOT))
 
 from src.data_ingestion.loader  import load_all_csv
