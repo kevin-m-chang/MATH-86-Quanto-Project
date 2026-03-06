@@ -1,9 +1,9 @@
 # MATH 86 Quanto Project
 
-This project computes the equity–FX correlation implied by option markets,
-using ADR, local equity, and FX volatility surfaces from Bloomberg.
+A reproducible research pipeline for extracting the equity–FX correlation implied
+by option markets, using ADR, local equity, and FX volatility surfaces from Bloomberg.
 
-**Case study:** ASML US ADR (ASML US Equity) vs ASML Amsterdam local shares (ASML NA Equity) with EUR/USD.  
+**Case study:** ASML US ADR (ASML US Equity) vs ASML Amsterdam shares (ASML NA Equity) with EUR/USD.  
 **Data:** Bloomberg CSV exports, 2016–2025 (~2500 trading days), committed to this repository.
 
 ---
@@ -28,15 +28,11 @@ Under log-normal dynamics, an ADR (priced in USD) is a composite of the local
 equity (priced in EUR) and the EUR/USD exchange rate. Their implied volatilities
 satisfy the **ADR variance identity**:
 
-```
-sigma_ADR^2 = sigma_local^2 + sigma_FX^2 + 2 * rho * sigma_local * sigma_FX
-```
+$$\sigma_{\text{ADR}}^2 = \sigma_{\text{local}}^2 + \sigma_{\text{FX}}^2 + 2\,\rho\,\sigma_{\text{local}}\,\sigma_{\text{FX}}$$
 
 Rearranging gives the **implied correlation** extracted directly from option markets:
 
-```
-rho = (sigma_ADR^2 - sigma_local^2 - sigma_FX^2) / (2 * sigma_local * sigma_FX)
-```
+$$\rho = \frac{\sigma_{\text{ADR}}^2 - \sigma_{\text{local}}^2 - \sigma_{\text{FX}}^2}{2\,\sigma_{\text{local}}\,\sigma_{\text{FX}}}$$
 
 Computed at three tenors: **1M**, **3M**, and **1Y**.
 
@@ -45,16 +41,13 @@ Computed at three tenors: **1M**, **3M**, and **1Y**.
 Bloomberg delivers FX implied vols as ATM straddle + 25-delta butterfly spread +
 25-delta risk reversal. The individual wing vols follow directly:
 
-```
-sigma_25c = ATM + BF + RR/2
-sigma_25p = ATM + BF - RR/2
-```
+$$\sigma_{25c} = \text{ATM} + \text{BF} + \frac{\text{RR}}{2}$$
+
+$$\sigma_{25p} = \text{ATM} + \text{BF} - \frac{\text{RR}}{2}$$
 
 ### Equity Skew
 
-```
-skew = sigma_25p - sigma_25c
-```
+$$\text{skew} = \sigma_{25p} - \sigma_{25c}$$
 
 Positive skew means the put wing is wider than the call wing, as is typical for equities.
 
