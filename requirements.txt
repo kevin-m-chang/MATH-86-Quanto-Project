@@ -2,22 +2,22 @@
 #  MATH-86 Quanto Project — Python dependencies
 # ============================================================
 
-# --- Bloomberg Desktop API -----------------------------------
-# Pre-installed via Bloomberg API SDK.  Not on PyPI.
-# Verify: python -c "import blpapi; print(blpapi.version())"
-blpapi
-
 # --- Core data stack -----------------------------------------
 numpy>=1.26
 pandas>=2.2
-pyarrow>=15.0          # Parquet I/O (legacy Bloomberg pulls)
-openpyxl>=3.1          # Read Bloomberg-exported .xlsx files
-
-# --- Scientific / analysis -----------------------------------
-scipy>=1.13            # Optional: fitting, statistical tests
+openpyxl>=3.1          # Read Bloomberg-exported .xlsx files (loader.py reference code)
 
 # --- Visualisation -------------------------------------------
 matplotlib>=3.8
+
+# --- Testing -------------------------------------------------
+pytest>=8.0
+
+# --- Bloomberg Desktop API (optional — only needed for re-pulling data) -----
+# Pre-installed via Bloomberg API SDK on Bloomberg terminals. Not on PyPI.
+# Only required to run scripts/bdh_*.py or tests/test_bbg_connection.py.
+# Do NOT pip install this — it comes with the Bloomberg terminal software.
+# blpapi
 seaborn>=0.13          # Optional: higher-level statistical plots
 
 # --- Development / testing -----------------------------------
