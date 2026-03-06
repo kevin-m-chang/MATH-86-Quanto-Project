@@ -1,7 +1,25 @@
-# Bloomberg Desktop API — installed via Bloomberg API SDK, not pip.
-# Confirm with: C:\Users\Feldberg.Dartmouth\python\python.exe -c "import blpapi; print(blpapi.version())"
+# ============================================================
+#  MATH-86 Quanto Project — Python dependencies
+# ============================================================
+
+# --- Bloomberg Desktop API -----------------------------------
+# Pre-installed via Bloomberg API SDK.  Not on PyPI.
+# Verify: python -c "import blpapi; print(blpapi.version())"
 blpapi
 
-# Core data dependencies — install with pip.
-pandas
-pyarrow
+# --- Core data stack -----------------------------------------
+numpy>=1.26
+pandas>=2.2
+pyarrow>=15.0          # Parquet I/O (legacy Bloomberg pulls)
+openpyxl>=3.1          # Read Bloomberg-exported .xlsx files
+
+# --- Scientific / analysis -----------------------------------
+scipy>=1.13            # Optional: fitting, statistical tests
+
+# --- Visualisation -------------------------------------------
+matplotlib>=3.8
+seaborn>=0.13          # Optional: higher-level statistical plots
+
+# --- Development / testing -----------------------------------
+pytest>=8.0
+pytest-cov>=5.0

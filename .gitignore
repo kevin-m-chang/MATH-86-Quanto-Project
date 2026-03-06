@@ -1,34 +1,57 @@
-# Data files — never commit raw or processed data
-data/raw/
-data/processed/
+# ============================================================
+#  MATH-86 Quanto Project — .gitignore
+# ============================================================
 
-# Keep empty placeholder files so the directory tree is preserved in git
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# --- Raw Bloomberg exports — tracked so the repo is self-contained ----------
+# Ignore everything inside data/raw/ by default, then carve out CSVs and docs.
+data/raw/*
+!data/raw/*.csv
+!data/raw/README.md
 
-# Python bytecode
+# --- Generated / derived data — never commit --------------------------------
+data/processed/*
+
+# --- Generated figures — never commit ---------------------------------------
+outputs/figures/*
+# Keep a .gitkeep so the empty directory is tracked
+!outputs/figures/.gitkeep
+
+# --- Python artefacts ----------------------------------------
 __pycache__/
 *.py[cod]
 *.pyo
-
-# VS Code workspace settings
-.vscode/
-
-# Python virtual environments (if created)
-venv/
-.venv/
-env/
-
-# Jupyter / IPython
-.ipynb_checkpoints/
-*.ipynb
-
-# OS artifacts
-Thumbs.db
-.DS_Store
-desktop.ini
-
-# Build / distribution artifacts
+*.pyd
 *.egg-info/
 dist/
 build/
+*.egg
+.eggs/
+
+# --- Virtual environments ------------------------------------
+.venv/
+venv/
+env/
+.env
+
+# --- IDEs / editors ------------------------------------------
+.vscode/
+.idea/
+*.swp
+*~
+
+# --- macOS ---------------------------------------------------
+.DS_Store
+.AppleDouble
+
+# --- Windows -------------------------------------------------
+Thumbs.db
+desktop.ini
+
+# --- Jupyter -------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb
+
+# --- Test / coverage artefacts -------------------------------
+.pytest_cache/
+.coverage
+htmlcov/

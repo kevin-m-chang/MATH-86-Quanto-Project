@@ -1,7 +1,11 @@
 # MATH 86 Quanto Project
 
-Bloomberg Desktop API (blpapi) data-pull pipeline for FX spot rates, vol surfaces,
-and related instruments. Final target is a quanto pricing model fed by live market data.
+Research pipeline for computing **implied equity-FX correlation** from ADR,
+local equity, and FX implied volatilities — a core input to quanto derivative pricing.
+
+The pipeline loads Bloomberg-exported Excel files, cleans and aligns the data,
+computes implied correlations and equity skew across 1M/3M/1Y maturities, saves
+a derived dataset, and produces publication-quality time-series plots.
 
 ---
 
@@ -79,19 +83,136 @@ and saves to `data/raw/eurusd_spot.parquet`.
 ## Project Structure
 
 ```
-math86-quanto-project/
+MATH-86-Quanto-Project/
+├── run_pipeline.py               # ← top-level entry point
+│
+├── src/
+│   ├── data_ingestion/
+│   │   ├── loader.py             # Load Bloomberg Excel exports
+│   │   └── cleaner.py            # Align datasets to common business-day index
+│   ├── features/
+│   │   ├── fx_vol_surface.py     # Reconstruct FX 25Δ wing vols (ATM+BF±RR/2)
+│   │   └── skew.py               # Compute equity skew (25P − 25C)
+│   ├── analysis/
+│   │   ├── implied_correlation.py # Compute ρ = (σ²_ADR − σ²_loc − σ²_FX) / (2σ_loc σ_FX)
+│   │   └── build_dataset.py      # Orchestrate pipeline → data/processed/derived_dataset.csv
+│   └── visualization/
+│       └── plots.py              # Time-series plots of ρ and skew
+│
 ├── scripts/
-│   ├── bdh_pull_fx_spot.py     # One-shot EURUSD spot pull (HistoricalDataRequest)
-│   └── bdh_generic.py          # Reusable bdh() function, returns tidy DataFrame
+│   ├── bdh_generic.py            # Reusable Bloomberg BDH helper (live terminal)
+│   └── bdh_pull_fx_spot.py       # One-shot EURUSD spot pull
+│
 ├── tests/
-│   └── test_bbg_connection.py  # Verify Bloomberg session opens and refdata available
+│   ├── test_bbg_connection.py    # Live Bloomberg session smoke-test
+│   ├── test_implied_correlation.py
+│   ├── test_fx_vol_surface.py
+│   ├── test_skew.py
+│   └── test_cleaner.py
+│
 ├── data/
-│   ├── raw/                    # Parquet files from Bloomberg (git-ignored)
-│   └── processed/              # Cleaned / transformed data (git-ignored)
-├── README.md
+│   ├── raw/                      # Bloomberg Excel exports (git-ignored)
+│   └── processed/
+│       └── derived_dataset.csv   # Pipeline output (git-ignored)
+│
+├── outputs/
+│   └── figures/                  # PNG charts (git-ignored)
+│
 ├── requirements.txt
 └── .gitignore
 ```
+
+---
+
+## Theory
+
+### Implied Equity-FX Correlation
+
+For a quanto product, the ADR (priced in USD) behaves as a composite of the
+local equity (priced in BRL) and the USD/BRL exchange rate. Under log-normal
+dynamics the three implied vols satisfy:
+
+$$\sigma_{\text{ADR}}^2 = \sigma_{\text{local}}^2 + \sigma_{\text{FX}}^2
+  + 2\,\rho\,\sigma_{\text{local}}\,\sigma_{\text{FX}}$$
+
+Rearranging gives the **implied correlation**:
+
+$$\rho = \frac{\sigma_{\text{ADR}}^2 - \sigma_{\text{local}}^2 - \sigma_{\text{FX}}^2}
+             {2\,\sigma_{\text{local}}\,\sigma_{\text{FX}}}$$
+
+computed for each of the 1M, 3M, and 1Y maturities.
+
+### FX Wing Vol Reconstruction
+
+Bloomberg provides FX vols as ATM straddle, 25Δ butterfly, and 25Δ risk reversal:
+
+$$\sigma_{25c} = \text{ATM} + \text{BF} + \tfrac{\text{RR}}{2}$$
+$$\sigma_{25p} = \text{ATM} + \text{BF} - \tfrac{\text{RR}}{2}$$
+
+### Equity Skew
+
+$$\text{skew} = \sigma_{25p} - \sigma_{25c}$$
+
+(positive when the volatility smile is negatively skewed, as typical for equities).
+
+---
+
+## Setup
+
+### 1. Install Python dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+> `blpapi` is pre-installed via the Bloomberg API SDK — do not install from pip.
+
+### 2. Prepare Bloomberg Excel exports
+
+Export the following datasets from Bloomberg Terminal to `data/raw/`:
+
+| File | Bloomberg source | Required columns |
+|------|-----------------|-----------------|
+| `adr_vols.xlsx` | Option implied vols for ADR tickers | `<TICKER>_1M`, `<TICKER>_3M`, `<TICKER>_1Y` |
+| `local_vols.xlsx` | Option implied vols for local equity | `<TICKER>_1M`, `<TICKER>_3M`, `<TICKER>_1Y` |
+| `fx_vols.xlsx` | FX vol surface (ATM, BF25, RR25) | `<PAIR>_ATM_<T>`, `<PAIR>_BF25_<T>`, `<PAIR>_RR25_<T>` |
+| `fx_spot.xlsx` | FX spot rates | `<PAIR>_SPOT` |
+
+Bloomberg Excel format assumed: **one metadata header row (row 1), column names in row 2, data from row 3**.
+
+### 3. Configure tickers
+
+Edit the `SPECS` list in `run_pipeline.py`:
+
+```python
+SPECS = [
+    CorrelationSpec(
+        adr_ticker   = "VALE",    # column prefix in adr_vols.xlsx
+        local_ticker = "VALE3",   # column prefix in local_vols.xlsx
+        fx_pair      = "USDBRL",  # column prefix in fx_vols.xlsx
+    ),
+]
+```
+
+### 4. Run the pipeline
+
+```bash
+python run_pipeline.py
+```
+
+Outputs:
+- `data/processed/derived_dataset.csv` — aligned vols, ρ, skew
+- `outputs/figures/implied_correlation.png`
+- `outputs/figures/equity_skew.png`
+- `outputs/figures/<ADR>_<LOCAL>_<PAIR>_<TENOR>_combo.png` — per-tenor ρ + skew
+
+### 5. Run tests (no Bloomberg required)
+
+```bash
+pytest tests/ -v --ignore=tests/test_bbg_connection.py
+```
+
+---
 
 ---
 
