@@ -1,10 +1,10 @@
 # MATH 86 Quanto Project
 
-> This project computes the equity–FX correlation implied by option markets
-> using ADR, local equity, and FX volatility surfaces.
->
-> **Case study:** ASML US ADR (ASML US Equity) vs ASML Amsterdam local shares (ASML NA Equity) with EUR/USD.
-> **Data:** Bloomberg options data, 2016–2025 (~2500 trading days).
+This project computes the equity–FX correlation implied by option markets,
+using ADR, local equity, and FX volatility surfaces from Bloomberg.
+
+**Case study:** ASML US ADR (ASML US Equity) vs ASML Amsterdam local shares (ASML NA Equity) with EUR/USD.  
+**Data:** Bloomberg CSV exports, 2016–2025 (~2500 trading days), committed to this repository.
 
 ---
 
@@ -28,28 +28,35 @@ Under log-normal dynamics, an ADR (priced in USD) is a composite of the local
 equity (priced in EUR) and the EUR/USD exchange rate. Their implied volatilities
 satisfy the **ADR variance identity**:
 
-$$\sigma_{\text{ADR}}^2 = \sigma_{\text{local}}^2 + \sigma_{\text{FX}}^2 + 2\,\rho\,\sigma_{\text{local}}\,\sigma_{\text{FX}}$$
+```
+sigma_ADR^2 = sigma_local^2 + sigma_FX^2 + 2 * rho * sigma_local * sigma_FX
+```
 
 Rearranging gives the **implied correlation** extracted directly from option markets:
 
-$$\rho = \frac{\sigma_{\text{ADR}}^2 - \sigma_{\text{local}}^2 - \sigma_{\text{FX}}^2}{2\,\sigma_{\text{local}}\,\sigma_{\text{FX}}}$$
+```
+rho = (sigma_ADR^2 - sigma_local^2 - sigma_FX^2) / (2 * sigma_local * sigma_FX)
+```
 
-This is computed at three tenors: **1M**, **3M**, and **1Y**.
+Computed at three tenors: **1M**, **3M**, and **1Y**.
 
 ### FX Wing Vol Reconstruction
 
-Bloomberg delivers FX implied vols as ATM straddle + 25&Delta; butterfly spread + 25&Delta; risk
-reversal. The individual wing vols follow directly from algebra:
+Bloomberg delivers FX implied vols as ATM straddle + 25-delta butterfly spread +
+25-delta risk reversal. The individual wing vols follow directly:
 
-$$\sigma_{25c} = \text{ATM} + \text{BF} + \frac{\text{RR}}{2}$$
-
-$$\sigma_{25p} = \text{ATM} + \text{BF} - \frac{\text{RR}}{2}$$
+```
+sigma_25c = ATM + BF + RR/2
+sigma_25p = ATM + BF - RR/2
+```
 
 ### Equity Skew
 
-$$\text{skew} = \sigma_{25p} - \sigma_{25c}$$
+```
+skew = sigma_25p - sigma_25c
+```
 
-Positive skew means the put smile is steeper than the call smile, as is typical for equities.
+Positive skew means the put wing is wider than the call wing, as is typical for equities.
 
 ---
 
@@ -65,9 +72,9 @@ MATH-86-Quanto-Project/
 │
 ├── data/
 │   ├── raw/                               ← Bloomberg CSV exports (committed to git)
-│   │   ├── asml_adr_vols.csv              — ASML US ADR (ASML US Equity) implied vols + spot
-│   │   ├── asml_loc_vols.csv              — ASML Amsterdam local (ASML NA Equity) implied vols + spot
-│   │   ├── eurusd_fx_vols.csv             — EUR/USD ATM, RR, BF vols across tenors + spot
+│   │   ├── asml_adr_vols.csv              — ASML US ADR implied vols + spot
+│   │   ├── asml_loc_vols.csv              — ASML Amsterdam local implied vols + spot
+│   │   ├── eurusd_fx_vols.csv             — EUR/USD ATM, RR, BF vols + spot
 │   │   └── README.md                      — Column schemas and Bloomberg field map
 │   └── processed/                         ← Generated datasets (committed to git)
 │       ├── cleaned_dataset.csv            — Inner-joined, business-day aligned, 2491 × 22, zero NaNs
@@ -77,7 +84,7 @@ MATH-86-Quanto-Project/
 │   └── figures/                           ← Generated plots (committed to git)
 │       ├── rho_timeseries.png             — All three rho series, 2016–2025
 │       ├── rho_histograms.png             — Per-tenor distribution with mean and median
-│       └── rho_rolling60.png             — 60-day rolling mean, all tenors
+│       └── rho_rolling60.png              — 60-day rolling mean, all tenors
 │
 ├── src/
 │   ├── data_ingestion/
@@ -89,8 +96,8 @@ MATH-86-Quanto-Project/
 │   │   ├── compute_derived.py             ← Step 2: cleaned → derived_dataset.csv + plots
 │   │   └── timing_stability_check.py      ← Sanity check: Amsterdam/NYSE close-time sensitivity
 │   ├── features/
-│   │   ├── fx_vol_surface.py              ← Reconstruct 25Δ call/put vols from ATM + BF + RR
-│   │   └── skew.py                        ← Compute equity skew = σ_25p − σ_25c
+│   │   ├── fx_vol_surface.py              ← Reconstruct 25-delta wing vols from ATM + BF + RR
+│   │   └── skew.py                        ← Compute equity skew = sigma_25p − sigma_25c
 │   └── visualization/
 │       └── plots.py                       ← Reusable matplotlib plot functions
 │
@@ -112,15 +119,20 @@ MATH-86-Quanto-Project/
 
 ### `data/raw/` — Bloomberg CSV exports
 
-All vol columns are in **percentage points** (e.g. `32.14` means 32.14%). Spot is
-a price level (e.g. EUR/USD = `1.08`). Bloomberg appends trailing formula columns
-to CSV exports; these are automatically stripped by `loader.py` on load.
+All vol columns are in **percentage points** (e.g. `32.14` means 32.14%).
+Spot is a price level (e.g. EUR/USD = `1.08`).
+Bloomberg appends trailing formula columns to CSV exports; `loader.py` strips
+these automatically on load using explicit column whitelists.
 
 | File | Raw rows | Columns after loading |
 |---|---|---|
 | `asml_adr_vols.csv` | 2514 | `adr_ATM_1M`, `adr_P25_1M`, `adr_C25_1M`, `adr_ATM_3M`, `adr_ATM_1Y`, `adr_ADR_SPOT` |
 | `asml_loc_vols.csv` | 2560 | `loc_ATM_1M`, `loc_P25_1M`, `loc_C25_1M`, `loc_ATM_3M`, `loc_ATM_1Y`, `loc_LOC_SPOT` |
 | `eurusd_fx_vols.csv` | 2610 | `fx_ATM_1M/3M/1Y`, `fx_RR_1M/3M/1Y`, `fx_BF_1M/3M/1Y`, `fx_FX_SPOT` |
+
+Column naming follows `<source>_<bloomberg_field>`. The spot columns retain their
+Bloomberg field names after prefixing: `adr_ADR_SPOT` (ASML US price in USD),
+`loc_LOC_SPOT` (ASML Amsterdam price in EUR), `fx_FX_SPOT` (EUR/USD rate).
 
 See `data/raw/README.md` for the full column schemas and Bloomberg field mappings.
 
@@ -169,27 +181,27 @@ git clone https://github.com/kevin-m-chang/MATH-86-Quanto-Project.git
 cd MATH-86-Quanto-Project
 python -m venv .venv
 source .venv/bin/activate        # macOS / Linux
-# .venv\Scripts\activate         # Windows
+# .venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 ```
 
 ### 2. Run the full pipeline
 
-The raw CSVs and processed datasets are already committed to the repository,
-so you can inspect outputs immediately. To regenerate everything from scratch:
+The raw CSVs and processed datasets are already committed, so outputs are
+immediately available. To regenerate everything from scratch:
 
 ```bash
 python run_pipeline.py
 ```
 
-This runs two steps in order:
+This runs two steps in sequence:
 
 | Step | Script | Input | Output |
 |---|---|---|---|
 | 1 | `src/data_ingestion/ingest_csv_pipeline.py` | `data/raw/*.csv` | `data/processed/cleaned_dataset.csv` |
 | 2 | `src/analysis/compute_derived.py` | `cleaned_dataset.csv` | `derived_dataset.csv` + `outputs/figures/*.png` |
 
-Each step is idempotent and can be run standalone:
+Each step is idempotent and can also be run standalone:
 
 ```bash
 python src/data_ingestion/ingest_csv_pipeline.py
@@ -203,8 +215,8 @@ pytest tests/ -v --ignore=tests/test_bbg_connection.py
 ```
 
 All 30 tests are Bloomberg-free and run entirely on synthetic data.
-`test_bbg_connection.py` requires a live Bloomberg terminal and is excluded from
-the standard run.
+`test_bbg_connection.py` requires a live Bloomberg terminal and is excluded
+from the standard run.
 
 ---
 
@@ -222,7 +234,7 @@ sources → forward-fill holiday gaps (at most 3 consecutive days) → drop any
 remaining NaN rows.
 
 ### `src/data_ingestion/ingest_csv_pipeline.py`
-**Step 1 script.** Calls `loader.py` and `cleaner.py` for the three
+**Step 1 script.** Orchestrates `loader.py` and `cleaner.py` for the three
 ASML US / ASML NA / EURUSD CSVs, prints a structured status report (row counts,
 column names, dtypes, first 5 rows), and saves `cleaned_dataset.csv`.
 
@@ -246,13 +258,14 @@ introduces moderate noise at the 1M tenor (p95 deviation ≈ 0.57 rho-points).
 Supports the recommendation to use 3M and 1Y as primary series.
 
 ### `src/features/fx_vol_surface.py`
-Given ATM + 25Δ butterfly + 25Δ risk reversal, reconstructs 25Δ call vol and 25Δ put vol
-using the algebraic identities: σ_25c = ATM + BF + RR/2, σ_25p = ATM + BF − RR/2.
-Auto-detects pair prefixes from column names.
+Given ATM + 25-delta butterfly + 25-delta risk reversal, reconstructs the
+25-delta call and put vols: `sigma_25c = ATM + BF + RR/2`,
+`sigma_25p = ATM + BF - RR/2`. Auto-detects pair prefixes from column names.
 
 ### `src/features/skew.py`
-Computes equity skew = σ_25p − σ_25c per ticker/tenor. Supports both direct wing
-vol inputs and an −RR25 approximation when individual wings are unavailable.
+Computes equity skew = `sigma_25p − sigma_25c` per ticker/tenor. Supports both
+direct wing vol inputs and a `−RR25` approximation when individual wings are
+unavailable.
 
 ### `src/visualization/plots.py`
 Reusable matplotlib functions: `plot_implied_correlation`, `plot_skew`,
@@ -263,18 +276,18 @@ Reusable matplotlib functions: `plot_implied_correlation`, `plot_skew`,
 ## Caveats and Known Behavior
 
 ### Rho clipping
-The variance identity used to compute implied correlation is only approximate in
-markets with skew and convexity. Raw rho estimates can therefore exceed [−1, 1].
-The current implementation clips rho to [−1, 1] for stability; the raw numerator
-(`delta_var`) is also stored in `derived_dataset.csv` for diagnostic use.
+The variance identity is only an approximation in markets with skew and
+convexity. Raw rho estimates can therefore exceed [−1, 1]. The implementation
+clips rho to [−1, 1] for stability; the raw numerator (`delta_var`) is also
+stored in `derived_dataset.csv` for diagnostic use.
 
 ### 1M rho is noisier than 3M and 1Y
-Short-tenor implied vols respond faster to intraday market moves, amplifying
-day-to-day variation in the rho estimate. Additionally, ASML Amsterdam shares
-close at approximately 11:30 ET while the NYSE closes at 16:00 ET — a 4.5-hour
-gap that introduces asynchronous pricing into the daily vol observations.
-The sensitivity analysis in `timing_stability_check.py` shows a p95 rho deviation
-of ≈ 0.57 rho-points under a simulated 1-day lag on the Amsterdam close.
+Short-tenor implied vols respond faster to intraday moves, amplifying day-to-day
+variation in the rho estimate. Additionally, ASML Amsterdam shares close at
+approximately 11:30 ET while the NYSE closes at 16:00 ET — a 4.5-hour gap that
+introduces asynchronous pricing into daily vol observations. The sensitivity
+analysis in `timing_stability_check.py` shows a p95 rho deviation of ≈ 0.57
+rho-points under a simulated 1-day lag on the Amsterdam close.
 
 **Use 3M and 1Y rho as the primary series. Treat 1M rho as indicative.**
 
@@ -291,8 +304,8 @@ of ≈ 0.57 rho-points under a simulated 1-day lag on the Amsterdam close.
 ## Bloomberg Notes
 
 The raw CSV files in `data/raw/` were exported from a Bloomberg terminal and are
-committed directly to this repository. No Bloomberg access is required to run
-the analysis pipeline.
+committed directly to this repository. **No Bloomberg access is required to run
+the analysis pipeline.**
 
 If you need to extend the date range or re-pull the data, use the scripts in
 `scripts/`. These require a live Bloomberg terminal session:
