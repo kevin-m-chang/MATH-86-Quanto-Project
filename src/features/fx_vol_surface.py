@@ -101,3 +101,40 @@ def reconstruct_wing_vols(
 
     log.info("Wing vol columns added: %s", added)
     return df
+
+
+def reconstruct_wing_vols_from_columns(
+    df: pd.DataFrame,
+    atm_col: str,
+    bf_col: str,
+    rr_col: str,
+    call_col: str = "call_vol",
+    put_col: str = "put_vol",
+) -> pd.DataFrame:
+    """
+    Reconstruct 25-delta call and put vols from explicit column names.
+
+    This avoids the naming-convention coupling of ``reconstruct_wing_vols``
+    and works directly with any ATM / BF / RR column names.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain *atm_col*, *bf_col*, and *rr_col*.
+    atm_col, bf_col, rr_col : str
+        Column names for ATM vol, butterfly spread, and risk reversal.
+    call_col, put_col : str
+        Names for the two new output columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of *df* with *call_col* and *put_col* appended.
+    """
+    out = df.copy()
+    atm = df[atm_col]
+    bf = df[bf_col]
+    rr = df[rr_col]
+    out[call_col] = atm + bf + rr / 2.0
+    out[put_col] = atm + bf - rr / 2.0
+    return out

@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.features.fx_vol_surface import reconstruct_wing_vols
+from src.features.fx_vol_surface import reconstruct_wing_vols_from_columns
 
 
 # ---------------------------------------------------------------------------
@@ -97,3 +98,49 @@ class TestReconstructWingVols:
         result = reconstruct_wing_vols(fx_vol_df)
         for col in fx_vol_df.columns:
             assert col in result.columns
+
+
+class TestReconstructWingVolsFromColumns:
+    """Tests for the explicit-column variant."""
+
+    @pytest.fixture
+    def simple_df(self) -> pd.DataFrame:
+        idx = pd.bdate_range("2023-01-02", periods=5)
+        return pd.DataFrame(
+            {
+                "my_atm": [10.0, 11.0, 12.0, 13.0, 14.0],
+                "my_bf":  [0.5,  0.5,  0.5,  0.5,  0.5],
+                "my_rr":  [1.0,  1.0,  1.0,  1.0,  1.0],
+            },
+            index=idx,
+        )
+
+    def test_call_formula(self, simple_df):
+        result = reconstruct_wing_vols_from_columns(
+            simple_df, "my_atm", "my_bf", "my_rr",
+            call_col="c25", put_col="p25",
+        )
+        expected = simple_df["my_atm"] + simple_df["my_bf"] + simple_df["my_rr"] / 2
+        pd.testing.assert_series_equal(result["c25"], expected, check_names=False)
+
+    def test_put_formula(self, simple_df):
+        result = reconstruct_wing_vols_from_columns(
+            simple_df, "my_atm", "my_bf", "my_rr",
+            call_col="c25", put_col="p25",
+        )
+        expected = simple_df["my_atm"] + simple_df["my_bf"] - simple_df["my_rr"] / 2
+        pd.testing.assert_series_equal(result["p25"], expected, check_names=False)
+
+    def test_original_columns_preserved(self, simple_df):
+        result = reconstruct_wing_vols_from_columns(
+            simple_df, "my_atm", "my_bf", "my_rr",
+        )
+        for col in simple_df.columns:
+            assert col in result.columns
+
+    def test_call_gt_put_when_rr_positive(self, simple_df):
+        result = reconstruct_wing_vols_from_columns(
+            simple_df, "my_atm", "my_bf", "my_rr",
+            call_col="c", put_col="p",
+        )
+        assert (result["c"] > result["p"]).all()

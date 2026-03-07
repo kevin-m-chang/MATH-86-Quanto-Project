@@ -18,6 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from src.features.skew import compute_equity_skew
+from src.features.skew import compute_skew_from_columns
 
 
 # ---------------------------------------------------------------------------
@@ -114,3 +115,61 @@ class TestComputeEquitySkewRRApproximation:
             rr_vol_df, use_rr_approximation=True, tenors=("1M",)
         )
         assert (result["VALE_SKEW_1M"] > 0).all()
+
+
+class TestComputeSkewFromColumns:
+    """Tests for the explicit-column variant."""
+
+    @pytest.fixture
+    def df(self) -> pd.DataFrame:
+        idx = pd.bdate_range("2023-01-02", periods=5)
+        return pd.DataFrame(
+            {
+                "adr_P25_1M": [35.0, 36.0, 37.0, 38.0, 39.0],
+                "adr_C25_1M": [30.0, 31.0, 32.0, 33.0, 34.0],
+                "loc_P25_1M": [38.0, 37.0, 36.0, 35.0, 34.0],
+                "loc_C25_1M": [33.0, 32.0, 31.0, 30.0, 29.0],
+            },
+            index=idx,
+        )
+
+    def test_output_columns(self, df):
+        result = compute_skew_from_columns(df, [
+            ("adr_P25_1M", "adr_C25_1M", "adr_skew"),
+            ("loc_P25_1M", "loc_C25_1M", "loc_skew"),
+        ])
+        assert "adr_skew" in result.columns
+        assert "loc_skew" in result.columns
+
+    def test_formula(self, df):
+        result = compute_skew_from_columns(df, [
+            ("adr_P25_1M", "adr_C25_1M", "adr_skew"),
+        ])
+        expected = df["adr_P25_1M"] - df["adr_C25_1M"]
+        pd.testing.assert_series_equal(
+            result["adr_skew"].reset_index(drop=True),
+            expected.reset_index(drop=True),
+            check_names=False,
+        )
+
+    def test_positive_when_put_gt_call(self, df):
+        result = compute_skew_from_columns(df, [
+            ("adr_P25_1M", "adr_C25_1M", "s"),
+        ])
+        assert (result["s"] > 0).all()
+
+    def test_missing_column_skipped(self, df):
+        result = compute_skew_from_columns(df, [
+            ("adr_P25_1M", "adr_C25_1M", "adr_skew"),
+            ("MISSING_P", "MISSING_C", "bad_skew"),
+        ])
+        assert "adr_skew" in result.columns
+        assert "bad_skew" not in result.columns
+
+    def test_empty_result(self):
+        idx = pd.bdate_range("2023-01-02", periods=3)
+        df = pd.DataFrame({"x": [1, 2, 3]}, index=idx)
+        result = compute_skew_from_columns(df, [
+            ("MISSING_P", "MISSING_C", "skew"),
+        ])
+        assert result.empty

@@ -118,3 +118,36 @@ def compute_equity_skew(
         return pd.DataFrame(index=df.index)
 
     return pd.concat(skew_frames, axis=1)
+
+
+def compute_skew_from_columns(
+    df: pd.DataFrame,
+    put_call_pairs: list[tuple[str, str, str]],
+) -> pd.DataFrame:
+    """
+    Compute skew from explicit put/call column names.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must contain every put and call column referenced.
+    put_call_pairs : list of (put_col, call_col, output_name)
+        Each tuple maps a put vol column and call vol column to the desired
+        output column name.  ``skew = put_vol - call_vol``.
+
+    Returns
+    -------
+    pd.DataFrame
+        New DataFrame (same index) with one column per tuple.
+    """
+    results: dict[str, pd.Series] = {}
+    for put_col, call_col, out_name in put_call_pairs:
+        missing = [c for c in (put_col, call_col) if c not in df.columns]
+        if missing:
+            log.warning("Missing columns %s — skipping %s.", missing, out_name)
+            continue
+        results[out_name] = df[put_col] - df[call_col]
+    if not results:
+        log.warning("No skew columns could be computed.")
+        return pd.DataFrame(index=df.index)
+    return pd.DataFrame(results, index=df.index)
