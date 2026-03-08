@@ -1,7 +1,8 @@
 # MATH 86 Quanto Project
 
-A reproducible research pipeline for extracting the equity–FX correlation implied
-by option markets, using ADR, local equity, and FX volatility surfaces from Bloomberg.
+A reproducible research pipeline for extracting implied equity–FX correlation from option markets and studying its role in quanto hedge stability, using ADR, local equity, and FX volatility surfaces from Bloomberg.
+
+**Research question:** Does correlation skew in vanilla option markets identify periods where ATM-based quanto hedges become more fragile?
 
 **Case study:** ASML US ADR (ASML US Equity) vs ASML Amsterdam shares (ASML NA Equity) with EUR/USD.  
 **Data:** Bloomberg CSV exports, 2016–2025 (~2500 trading days), committed to this repository.
@@ -11,12 +12,13 @@ by option markets, using ADR, local equity, and FX volatility surfaces from Bloo
 ## Table of Contents
 
 1. [Theory](#theory)
-2. [Repository Structure](#repository-structure)
-3. [Datasets](#datasets)
-4. [Quick Start](#quick-start)
-5. [Source Module Guide](#source-module-guide)
-6. [Caveats and Known Behavior](#caveats-and-known-behavior)
-7. [Bloomberg Notes](#bloomberg-notes)
+2. [Empirical Findings](#empirical-findings)
+3. [Repository Structure](#repository-structure)
+4. [Datasets](#datasets)
+5. [Quick Start](#quick-start)
+6. [Source Module Guide](#source-module-guide)
+7. [Caveats and Known Behavior](#caveats-and-known-behavior)
+8. [Bloomberg Notes](#bloomberg-notes)
 
 ---
 
@@ -34,7 +36,37 @@ Rearranging gives the **implied correlation** extracted directly from option mar
 
 $$\rho = \frac{\sigma_{\text{ADR}}^2 - \sigma_{\text{local}}^2 - \sigma_{\text{FX}}^2}{2\,\sigma_{\text{local}}\,\sigma_{\text{FX}}}$$
 
-Computed at three tenors: **1M**, **3M**, and **1Y**.
+Computed at three tenors: **1M**, **3M**, and **1Y**, and at three strike levels: **ATM**, **25Δ-put**, and **25Δ-call**.
+
+### Correlation Skew
+
+Applying the identity at put-strike and call-strike implied vols yields strike-specific implied correlations $\hat\rho_\text{put}$ and $\hat\rho_\text{call}$. Their difference is the **correlation skew**:
+
+$$\text{corr\_skew} = \hat\rho_\text{put} - \hat\rho_\text{call}$$
+
+This measures *state-dependent* stock–FX dependence: how differently the market prices co-movement in downside vs upside scenarios. When skew is large, the single ATM correlation is a poor summary of the full dependence structure across strikes.
+
+A useful way to see the fragility implication: the ATM rho can be interpreted as a probability-weighted average of the down-state and up-state correlations,
+
+$$\hat\rho_\text{ATM} \approx p \cdot \hat\rho_\text{down} + (1-p) \cdot \hat\rho_\text{up}$$
+
+so that day-to-day drift in ATM rho is amplified by the put/call gap:
+
+$$\Delta\hat\rho_\text{ATM} \approx (\hat\rho_\text{down} - \hat\rho_\text{up})\,\Delta p$$
+
+Large correlation skew therefore makes the ATM hedge more sensitive to regime-probability shifts, even when the underlying volatilities are stable.
+
+### Hedge Fragility
+
+A standard vanilla quanto hedge fixes $\hat\rho$ at the ATM level. The relevant covariance term is:
+
+$$C_t = 2\,\hat\rho_t\,\sigma_\text{loc}\,\sigma_\text{FX}$$
+
+We measure forward-looking hedge instability using:
+
+$$|\Delta\hat\rho_h| = |\hat\rho_{t+h} - \hat\rho_t|, \qquad |\Delta C_h| = |C_{t+h} - C_t|$$
+
+at horizons $h \in \{1\text{d},\, 5\text{d},\, 20\text{d}\}$.
 
 ### FX Wing Vol Reconstruction
 
@@ -50,6 +82,47 @@ $$\sigma_{25p} = \text{ATM} + \text{BF} - \frac{\text{RR}}{2}$$
 $$\text{skew} = \sigma_{25p} - \sigma_{25c}$$
 
 Positive skew means the put wing is wider than the call wing, as is typical for equities.
+
+---
+
+## Empirical Findings
+
+The full analysis is in `notebooks/analysis_corr_skew.ipynb`.
+
+### Main result: bat-shaped fragility
+
+Binning observations by signed `corr_skew_1m` into ten equal-count deciles (D01 = most negative, D10 = most positive) reveals a **U-shaped ("bat-shaped") profile** in future hedge fragility:
+
+- Both tail deciles (D01 and D10) show **30–53% larger future |ΔC|** than the neutral middle (D05) at the 20-day horizon.
+- The positive skew tail (D10) is slightly more destabilising than the negative tail (D01) at longer horizons (D10: 1.53× D05 at 20d vs D01: 1.31×).
+- Linear OLS regressions of skew on signed future rho drift show β ≈ 0 — the U-shape cancels symmetrically and is invisible to linear models.
+
+### Magnitude confirms the signal
+
+Binning by absolute |corr_skew| into magnitude deciles (M01–M10) yields a near-monotone increase in fragility: the highest-skew decile (M10) shows **1.2–1.5× more |ΔC|** than the lowest (M01) across all horizons.
+
+### Transition-state test
+
+An unexpected fragility spike in D06 (middle-positive decile) was investigated:
+
+- D06 has the **highest sign-switch rate (59%)** — nearly every other day the skew crosses zero — while having the lowest within-decile skew standard deviation. This is the "zero-crossing zone" where correlation is actively being repriced.
+- Days where skew changes sign ("sign-switch days") show **~15% more |ΔC|** than non-switch days across all horizons (~41% of the sample).
+
+### Key figures
+
+| Figure | Description |
+|--------|-------------|
+| ATM / put / call ρ time series | Shows the spread between strike-specific implied correlations over 2016–2025 |
+| Correlation skew time series | `corr_skew_1m` with 60-day rolling mean |
+| Bat-shape bar chart | Mean |ΔC| per signed decile, normalised to D05 = 1.00 |
+| Magnitude decile chart | Mean |ΔC| per |skew| magnitude decile, normalised to M01 = 1.00 |
+| Transition-state chart | Skew velocity, within-decile std, sign-switch vs non-switch fragility |
+
+### Practical interpretation
+
+> Correlation skew appears to be a **regime indicator** for periods when ATM-based vanilla quanto hedges are less reliable. Extreme skew regimes are associated with larger future covariance drift, suggesting practitioners should widen rehedging bands or increase monitoring frequency when |corr_skew| is elevated.
+>
+> This is not a directional return predictor and does not imply tradable alpha. The relationship reflects the sensitivity of ATM-implied covariance to regime shifts when put/call rhos diverge.
 
 ---
 
@@ -142,26 +215,27 @@ Produced by **Step 1** (`ingest_csv_pipeline.py`).
 ### `data/processed/derived_dataset.csv`
 
 Produced by **Step 2** (`compute_derived.py`). Contains everything in
-`cleaned_dataset.csv` plus six derived columns:
+`cleaned_dataset.csv` plus derived columns including:
 
-| Column | Description |
+| Column group | Description |
 |---|---|
-| `rho_1m` | Implied equity–FX correlation, 1-month tenor |
-| `rho_3m` | Implied equity–FX correlation, 3-month tenor |
-| `rho_1y` | Implied equity–FX correlation, 1-year tenor |
-| `delta_var_1m` | Raw numerator: `adr_ATM_1M`² − `loc_ATM_1M`² − `fx_ATM_1M`² (in %² units) |
-| `delta_var_3m` | Same at 3M |
-| `delta_var_1y` | Same at 1Y |
+| `rho_1m/3m/1y` | ATM implied equity–FX correlation, three tenors |
+| `rho_put_1m`, `rho_call_1m` | 25Δ-put and 25Δ-call implied correlation (1M) |
+| `corr_skew_1m` | Correlation skew = `rho_put_1m − rho_call_1m` |
+| `cross_term_1m` | Covariance term $2\hat\rho\,\sigma_\text{loc}\,\sigma_\text{FX}$ (pp²) |
+| `rho_drift_{1d/5d/20d}` | Forward signed change in ATM rho at each horizon |
+| `cross_term_drift_{1d/5d/20d}` | Forward signed change in cross-term at each horizon |
+| `adr_skew_1m`, `loc_skew_1m` | Equity skew for ADR and local shares |
+| `fx_RR_1M` | FX 25Δ risk reversal (1M) |
+| `delta_var_1m/3m/1y` | Raw variance-identity numerator (diagnostic) |
 
-**Summary statistics for rho:**
+**2491 rows × 43 columns**, 2016-01-04 → 2025-12-31.
 
-| | 1-Month | 3-Month | 1-Year |
-|---|---:|---:|---:|
-| Mean | 0.104 | 0.151 | 0.116 |
-| Std | 0.314 | 0.261 | 0.227 |
-| Median | 0.105 | 0.149 | 0.125 |
-| 5th pct | −0.414 | −0.302 | −0.296 |
-| 95th pct | 0.632 | 0.583 | 0.481 |
+**ATM rho summary (1M):**
+
+| | Mean | Std | Median | 5th pct | 95th pct |
+|---|---:|---:|---:|---:|---:|
+| `rho_1m` | 0.104 | 0.314 | 0.105 | −0.414 | 0.632 |
 
 ---
 
