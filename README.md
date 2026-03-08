@@ -42,7 +42,7 @@ Computed at three tenors: **1M**, **3M**, and **1Y**, and at three strike levels
 
 Applying the identity at put-strike and call-strike implied vols yields strike-specific implied correlations $\hat\rho_\text{put}$ and $\hat\rho_\text{call}$. Their difference is the **correlation skew**:
 
-$$\text{corr\_skew} = \hat\rho_\text{put} - \hat\rho_\text{call}$$
+$$\widehat{\rho}_\text{put} - \widehat{\rho}_\text{call} =: \text{corr skew}$$
 
 This measures *state-dependent* stock–FX dependence: how differently the market prices co-movement in downside vs upside scenarios. When skew is large, the single ATM correlation is a poor summary of the full dependence structure across strikes.
 
